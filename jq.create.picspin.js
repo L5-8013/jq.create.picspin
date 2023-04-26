@@ -15,7 +15,8 @@
   PicSpin.config = {
     time:2000,
     delay:3000,
-    resize:false
+    resize:false,
+    auto:false,
   }
   PicSpin.prototype = {
     init:function(){
@@ -31,10 +32,11 @@
         }
       }
       this.setCanvas()
-      this.fullScreen&&this.config.resize&&this.resizeFn();
+      // this.fullScreen&&this.config.resize&&this.resizeFn();
     },
     resizeMark:null,
     resizeFn:function(){
+      // 作废
       var _this = this;
       $(window).on('resize',function(event) {
         if (_this.resizeMark) clearTimeout(_this.resizeMark); // 避免吃性能
@@ -53,12 +55,12 @@
       var c = this.config
       this._w = c.width || $(window).width();
       this._h = c.height || $(window).height();
-      this._r =parseInt( (Math.sqrt(this._h*this._h+this._w*this._w))*0.5);
+      this._r =parseInt( (Math.sqrt(this._h*this._h+this._w*this._w))*0.5); // 遮罩的半径, 否则遮不住一张图的对角线
     },
     setCanvas:function(){
       var _this = this;
       this.setSize()  // 初始化canvas的宽高和遮罩半径
-      this.canvas.parent().height(_this._h);
+      this.canvas.parent().height(_this._h); // .canvas-wrap高度
       this.canvas = this.canvas.attr({
         'width': _this._w,
         'height': _this._h
@@ -82,16 +84,79 @@
       var c = this.config, b = c.banner;
       this.len = b.length;
       this.stage  = new createjs.Stage(this.canvas[0]);
+
       createjs.Ticker.addEventListener("tick", tick);
       function tick(event) {
         _this.stage.update();
       }
+
       this.objArr = []
       for (var i = 0; i < this.len; i++) {
-        this.objArr.push(_this.setSingleLayer(_this.stage,b[i],i))
+        this.objArr.push(_this.setSingleLayer(_this.stage,b[i],i)) // 图片插入舞台
       }
       this._initShape = this.initShape();
-      this.loop();
+
+      if(c.auto){
+        this.loop();
+      }else{
+        this.play()
+      }
+    },
+    play(){
+      var prev = this.config.prev;
+      var next = this.config.next;
+      var _this = this;
+      this.curIndex = 0;
+      this.lock = false
+
+
+      next.on('click',function(){
+        if (_this.lock) {
+          return;
+        }
+        _this.lock = true
+
+
+        // console.log(`切换前:`, _this.curIndex);
+        let activePage =  _this.objArr[_this.curIndex]
+        let activePageIndex =  _this.stage.getChildIndex(activePage.singleCon)
+        // console.log(`activePageIndex`, activePageIndex);
+        _this.stage.setChildIndex(_this.objArr[_this.curIndex == _this.len-1?0 : _this.curIndex+1].singleCon, activePageIndex-1)
+
+        _this.spinSingleLayer(_this.objArr[_this.curIndex],function(){
+          // console.log(`切换后:`, _this.curIndex);
+          _this.lock = false
+        })
+
+        _this.curIndex++;
+        if (_this.curIndex == _this.len) {
+          _this.curIndex = 0;
+        }
+      })
+
+      prev.on('click',function(){
+        if (_this.lock) {
+          return;
+        }
+
+        _this.lock = true
+
+        // console.log(`切换前:`, _this.curIndex);
+        let activePage =  _this.objArr[_this.curIndex]
+        let activePageIndex =  _this.stage.getChildIndex(activePage.singleCon)
+        _this.stage.setChildIndex(_this.objArr[_this.curIndex == 0?_this.len-1 : _this.curIndex-1].singleCon, activePageIndex-1)
+
+        _this.spinSingleLayer(activePage,function(){
+          // console.log(`切换后:`, _this.curIndex);
+          _this.lock = false
+        })
+
+        _this.curIndex--;
+
+        if (_this.curIndex < 0) {
+          _this.curIndex = _this.len-1;
+        }
+      })
     },
     loop:function(){
       var _this = this,c = this.config;
@@ -125,18 +190,38 @@
     },
     loopTimerArr:[],
     coverTimerArr:[],
-    spinSingleLayer : function(obj,cb){
+    spinSingleLayer : function(obj,cb,index){
       var _this = this;
       this.spinAni(obj.leftShape,function(){
-        _this.resetSingleCon(obj);
+        _this.resetSingleCon(obj,index=0);
         cb && cb();
       });
       this.spinAni(obj.rightShape);
     },
-    resetSingleCon:function(obj){
-      this.stage.setChildIndex(obj.singleCon,0)
+    resetSingleCon:function(obj,index){
+      this.stage.setChildIndex(obj.singleCon,index)
       this.resetShape(obj.leftShape)
       this.resetShape(obj.rightShape)
+    },
+    resetShape:function(shape){
+      createjs.Tween.get(shape, {
+        loop: false,
+      }, true).to({
+        rotation: 0
+      }, 0)
+    },
+    spinAni:function(shape,cb){
+      createjs.Tween.get(shape, {
+        loop: false,
+      }, true).to({
+        rotation: 180,
+        scaleX: 1,
+        scaleY: 1
+      }, this.config.time,
+        createjs.Ease.cubicInOut
+      ).call(function(){
+        cb && cb();
+      })
     },
     setSingleLayer:function(stage,picSrc,index){
       var _this = this;
@@ -153,8 +238,10 @@
       },0)
       return {
         singleCon:singleCon,
+        index:index,
         leftShape:leftShape,
-        rightShape: rightShape
+        rightShape: rightShape,
+        picSrc
       }
     },
     half:function(singleCon,picSrc,dir){
@@ -186,7 +273,8 @@
 
       }
 
-      halfPic.x = -parseInt((1920-this._w)/2)
+      halfPic.x = -parseInt((this._w-this._w)/2)
+      halfPic.y = -parseInt((this._h-this._h)/2)
 
       halfPic.mask = shapeA;
       halfCon.addChild(halfPic);
@@ -216,26 +304,7 @@
       )
       return shape;
     },
-    resetShape:function(shape){
-      createjs.Tween.get(shape, {
-        loop: false,
-      }, true).to({
-        rotation: 0
-      }, 0)
-    },
-    spinAni:function(shape,cb){
-      createjs.Tween.get(shape, {
-        loop: false,
-      }, true).to({
-        rotation: 180,
-        scaleX: 1,
-        scaleY: 1
-      }, this.config.time,
-        createjs.Ease.cubicInOut
-      ).call(function(){
-        cb && cb();
-      })
-    },
+
     initShape:function(){
       var _initShape = this.setShape({
         startAng:-(1/3)*Math.PI,

@@ -11,9 +11,27 @@
       margin: 0;
       padding: 0;
     }
+    .canvas-wrap{
+      position: relative;
+    }
     .canvas-wrap,.myCanvas{
       margin: 0 auto;
       display: block;
+    }
+    .btn{
+      position: absolute;
+      width: 50px;
+      height: 20px;
+      background-color: red;
+      top: 40px;
+      z-index: 100;
+      cursor: pointer;
+    }
+    .prev{
+      left: 30px;
+    }
+    .next{
+      right: 30px;
     }
   </style>
   <script src="lib-jquery1.10.2.js"></script>
@@ -27,17 +45,22 @@
   <div class="container">
     <div class="canvas-wrap pr">
       <canvas id="myCanvas" class="myCanvas">你的浏览器不支持Canvas</canvas>
+      <div class="btn prev">prev</div>
+      <div class="btn next">next</div>
     </div>
   </div>
   <script>
     var p = new PicSpin({
       canvas: $('#myCanvas'),
-      width:$(window).width(),  //默认值
-      height:$(window).height(),//默认值
-      banner:['banner/banner1.jpg','banner/banner2.jpg','banner/banner3.jpg','banner/banner4.jpg'],
+      width: 750,  //图片宽度
+      height: 422,//图片高度
+      // banner:['banner/banner1.jpg','banner/banner2.jpg','banner/banner3.jpg','banner/banner4.jpg'],
+      banner:['banner750/1.jpg','banner750/2.jpg','banner750/3.jpg','banner750/4.jpg'],
       time:2000, //每一张图旋转用时,默认2000
       delay:3000,  //过渡时间,默认3000
-      // resize:true // 是否支持自适应窗口, 默认false, 比较耗性能
+      auto:false,
+      prev:$('.prev'),
+      next:$('.next')
     });
   </script>
 </body>
